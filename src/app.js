@@ -5,6 +5,9 @@ import { urlEncodeData, getPromiseDataFromArray, flatten } from "./helpers";
 class Mashed {
   constructor(element) {
     this.root = element;
+    
+    this.page = 0;
+    this.pageSize = 10;
 
     this.search = this.search.bind(this);
 
@@ -13,16 +16,58 @@ class Mashed {
   }
 
   initialize() {
+    this.sentinel = document.querySelector(".sentinel");
     this.searchInput = document.querySelector(".search input");
     this.searchBtn = document.querySelector(".search button");
     this.sidebarWords = document.querySelectorAll("aside ul");
-
+    this.searchResultsContainer = document.querySelector(".results ul");
     this.loadingIndicator = document.querySelector(".loader");
+
+    this.sentinelObserver = new IntersectionObserver(entries => {
+      // If intersectionRatio is 0, the sentinel is out of view
+      // and we do not need to do anything.
+
+      /**
+       * If isIntersecting is true, the target element has become
+       * at least as visible as the threshold that was passed. 
+       * If it's false, the target is no longer as visible 
+       * as the given threshold.
+       */
+      if (!entries[0].isIntersecting)
+        // DOM-recycle here
+        return;
+      
+        this.loadit();
+    }, {
+      threshold: 1
+    })
+
+    this.sentinelObserver.observe(this.sentinel);
   }
 
   addEventListeners() {
     this.searchBtn.on("click", this.search);
     this.sidebarWords.on("click", (event) => this.search(event.target.textContent));
+  }
+
+  loadit() {
+    console.info('::: LOADING :::', this.page);
+
+    let apiCalls = [
+      this.fetchFlickrPhotos(this.searchInput.value, false), // only need new pics
+    ];
+
+    this.loadingIndicator.classList.add('spin');
+
+    getPromiseDataFromArray(apiCalls)
+      .then(result => {
+        this.renderFlickrResults(result[0])
+        this.loadingIndicator.classList.remove('spin')
+      })
+      .catch(reason => {
+        // TODO: Show error message to user
+        return console.error(reason);
+      });
   }
 
   search(searchString = null) {
@@ -35,7 +80,6 @@ class Mashed {
       return;
     }
 
-    // Note: order dependent
     let apiCalls = [
       this.fetchFlickrPhotos(query), // this is a promise
       this.fetchWordlabWords(query), // and this is a promise
@@ -50,7 +94,6 @@ class Mashed {
         this.loadingIndicator.classList.remove('spin')
       })
       .catch(reason => {
-        // TODO: Show error message to user
         return console.error(reason);
       });
   }
@@ -70,8 +113,11 @@ class Mashed {
       });
 
       const resultsHolder = document.querySelector('.results ul');
-      resultsHolder.innerHTML = "";
+
       resultsHolder.appendChild(frag);
+      resultsHolder.appendChild(this.sentinel);
+
+      this.sentinelObserver.observe(this.sentinel);
     }
 
   }
@@ -103,9 +149,11 @@ class Mashed {
     sidebarWordHolder.appendChild(frag);
   }
 
-  fetchFlickrPhotos(query) {
+  fetchFlickrPhotos(query, fetchNew = true) {
     let flickrAPIkey = process.env.FLICKR_API_KEY;
     let resourceUrl = `https://api.flickr.com/services/rest/?`;
+
+    fetchNew ? this.page = 0 : this.page++;
 
     let params = {
       method: "flickr.photos.search",
@@ -114,6 +162,7 @@ class Mashed {
       extras: "url_q, url_o, url_m",
       format: "json",
       tags: query,
+      page: this.page,
       per_page: 10,
       license: "2,3,4,5,6,9",
       sort: "relevance",
