@@ -1,5 +1,9 @@
-/** Makes us able to use on without jQuery */
-Node.prototype.on = window.on = function (name, fn) {
+/** Stuff I usually use */
+
+/**
+ * Because we want .on() to attach event listeners in our code
+ */
+Node.prototype.on = window.on = function(name, fn) {
   this.addEventListener(name, fn);
 };
 
@@ -11,36 +15,31 @@ NodeList.prototype.on = NodeList.prototype.addEventListener = function (name, fn
   });
 };
 
-/**
- *
- * @param {Array} arr Array of promises to be resolved
- */
-export function getPromiseData(promises) {
+export function urlEncodeData(data) {
+  return Object.keys(data)
+    .map(key => {
+      return [key, data[key]].map(encodeURIComponent).join("=");
+    })
+    .join("&");
+}
+
+export function getPromiseDataFromArray(promises) {
   return new Promise((resolve, reject) => {
     Promise.all(promises)
-      .then(res => {
-        return res.map( type => type.json() );
+      .then((res) => {
+        return res.map(type => { 
+          return type.status === 200 ? type.json() : reject(type.statusText)
+        });
       })
+      .catch(reason => console.log(reason))
       .then(res => {
-        Promise.all(res)
-          .then(resolve)
+        Promise.all(res).then(resolve);
       })
       .catch(reject);
   });
 }
 
-/**
- *
- * @param {Object} data
- */
-export function axelVisar(data) {
-  return Object.keys(data).map(function(key) {
-      console.log([key, data[key]]);
-      return [key, data[key]].map(encodeURIComponent).join("=");
-  }).join("&");
-}
-
-export function flatten (arr) {
-  const flat = [].concat(...arr);
+export function flatten(array) {
+  const flat = [].concat(...array);
   return flat.some(Array.isArray) ? flatten(flat) : flat;
 }

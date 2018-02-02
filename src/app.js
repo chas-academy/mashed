@@ -1,136 +1,140 @@
-import './styles/app.scss';
-import {on, sanitizeString, getPromiseData, axelVisar, flatten} from './helpers/';
+/* Code goes here */
+import "./styles/app.scss";
+import { urlEncodeData, getPromiseDataFromArray, flatten } from "./helpers";
 
 class Mashed {
   constructor(element) {
     this.root = element;
 
+    this.search = this.search.bind(this);
+
+    this.initialize();
     this.addEventListeners();
+  }
+
+  initialize() {
+    this.searchInput = document.querySelector(".search input");
+    this.searchBtn = document.querySelector(".search button");
+    this.sidebarWords = document.querySelectorAll("aside ul");
+
+    this.loadingIndicator = document.querySelector(".loader");
   }
 
   addEventListeners() {
-    const searchInput = document.querySelector('.search input');
-    const searchBtn = document.querySelector('.search button');
-
-    searchBtn.addEventListener('click', () => {
-      console.log('Clicked', event.target);
-      console.log('And the input has value ', );
-      this.fetchWordlabWords(searchInput.value);
-      this.fetchFlickrPhotos(searchInput.value);
-    });
-
-    const sidebarWords = document.querySelectorAll('aside ul li a');
-
-    sidebarWords.forEach((sidebarWord) => {
-      sidebarWord.addEventListener('click', function() {
-        // TODO: Trigger flickr and word api fetch with Promise.all()
-      });
-    });
+    this.searchBtn.on("click", this.search);
+    this.sidebarWords.on("click", (event) => this.search(event.target.textContent));
   }
 
-  search() {
+  search(searchString = null) {
     let query = this.searchInput.value;
+    
+    this.searchInput.value = searchString ? searchString : query;
+    query = query.length ? query : searchString;
 
-    if (!query.length) {
+    if (!query.length || !searchString) {
       return;
     }
 
+    // Note: order dependent
     let apiCalls = [
-      this.fetchFlickrPhotos(query),
-      this.fetchWordlabWords(query)
-    ]
+      this.fetchFlickrPhotos(query), // this is a promise
+      this.fetchWordlabWords(query), // and this is a promise
+    ];
 
-    getPromiseData(apiCalls)
-      .then((result) => {
-        console.log(result)
+    this.loadingIndicator.classList.add('spin');
+
+    getPromiseDataFromArray(apiCalls)
+      .then(result => {
+        this.renderFlickrResults(result[0])
+        this.renderWordlabResults(result[1])
+        this.loadingIndicator.classList.remove('spin')
+      })
+      .catch(reason => {
+        // TODO: Show error message to user
+        return console.error(reason);
       });
   }
 
-  renderFlickerPhotos(photos) {
-    const resultsHolder = document.querySelector('.results ul');
-    resultsHolder.innerHTML = "";
+  renderFlickrResults(data) {
+    const photos = data.photos.photo;
 
-    photos.forEach((photo) => {
-      const liEl = document.createElement('li');
-      const pEl = document.createElement('p');
+    if (photos.length) {
+      const frag = document.createDocumentFragment();
+      photos.map((photo) => {
+        const liEl = document.createElement('li');
 
-      pEl.textContent = photo.title;
+        liEl.style.backgroundImage = `url(${photo.url_m})`;
+        liEl.classList.add('result');
 
-      liEl.style.backgroundImage = `url(${photo.url_o})`;
-      liEl.classList.add('result');
-      liEl.appendChild(pEl);
+        frag.appendChild(liEl);
+      });
 
-      resultsHolder.appendChild(liEl);
-    });
+      const resultsHolder = document.querySelector('.results ul');
+      resultsHolder.innerHTML = "";
+      resultsHolder.appendChild(frag);
+    }
+
   }
 
-  renderWordSuggestions(res) {
-    const sidebarListHolder = document.querySelector('aside ul');
-
-    let words = Object.keys(res).map(key => {
-      return Object.values(res[key]).map(w => {
-        return w
+  renderWordlabResults(data) {
+    let words = Object.keys(data).map(key => {
+      return Object.values(data[key]).map(word => {
+        return word;
       });
     });
 
-    words = flatten(words); // Spara över words med den tillplattade versionen av sig själv
+    words = flatten(words);
 
-    words.forEach((word) => {
-      let listItem = document.createElement('li');
-      let link = document.createElement('a');
+    const frag = document.createDocumentFragment();
 
-      link.href = "#";
-      link.textContent = word;
+    words.map((word) => {
+      let liEl = document.createElement('li');
+      let aEl =  document.createElement('a');
 
-      listItem.appendChild(link);
-      sidebarListHolder.appendChild(listItem);
+      aEl.href = "#";
+      aEl.textContent = word;
+
+      liEl.appendChild(aEl);
+      frag.appendChild(liEl);
     });
 
-    this.addEventListeners();
-
+    const sidebarWordHolder = document.querySelector('aside ul');
+    sidebarWordHolder.innerHTML = "";
+    sidebarWordHolder.appendChild(frag);
   }
 
   fetchFlickrPhotos(query) {
-    let flickrAPIkey = process.env.FLICKR_API_KEY
+    let flickrAPIkey = process.env.FLICKR_API_KEY;
     let resourceUrl = `https://api.flickr.com/services/rest/?`;
 
     let params = {
-      method: 'flickr.photos.search',
+      method: "flickr.photos.search",
       api_key: flickrAPIkey,
       text: query,
-      sort: 'relevance',
-      extras: 'original_format, url_o, url_q',
-      license: '2,4,5,6,7',
+      extras: "url_q, url_o, url_m",
+      format: "json",
+      tags: query,
       per_page: 10,
-      format: 'json',
-      nojsoncallback: 1,
-      dimension_search_mode: "max"
+      license: "2,3,4,5,6,9",
+      sort: "relevance",
+      parse_tags: 1,
+      nojsoncallback: 1
     };
 
-    let flickrQueryParams = axelVisar(params);
-    let flickrUrl = `${resourceUrl}${flickrQueryParams}`
+    let flickrQueryParams = urlEncodeData(params);
+    let flickrUrl = `${resourceUrl}${flickrQueryParams}`;
 
-    return fetch(flickrUrl)
-      .then(res => res.json())
-      .then(res => {
-        this.renderFlickerPhotos(res.photos.photo);
-      });
+    return fetch(flickrUrl);
   }
 
   fetchWordlabWords(query) {
-    let wordLabAPIkey = process.env.BHT_API_KEY
-    let wordLabUrl = `http://words.bighugelabs.com/api/2/${wordLabAPIkey}/${query}/json`
+    let wordLabAPIkey = process.env.BHT_API_KEY;
+    let wordLabUrl = `http://words.bighugelabs.com/api/2/${wordLabAPIkey}/${query}/json`;
 
-    return fetch(wordLabUrl)
-      .then(res => res.json())
-      .then(res => {
-        // Nu kan vi börja bygga grejer i DOM:en, går bra att göra direkt i denna callbacken
-        // Eller, så lägger vi det i en funktion, som tar emot svaret från API:et
-        this.renderWordSuggestions(res) // Ropa på funktion
-      });
+    return fetch(wordLabUrl);
   }
 }
 
 (function() {
-  new Mashed(document.querySelector('#mashed'))
+  new Mashed(document.querySelector("#mashed"));
 })();

@@ -102,12 +102,33 @@ aside {
   padding: 10px;
   flex: 2;
 
+  .loader {
+    display: none;
+    width: 80px;
+    height: 80px;
+    border: 16px solid #fff;
+    border-top: 16px solid hsl(120, 47%, 53%);
+    border-radius: 50%;
+    &.spin {
+      display: block;
+      animation: spinning 1.0s linear infinite;
+    }
+  }
+
+  @keyframes spinning {
+    0% { transform: rotate(0deg) }
+    100% { transform: rotate(360deg) }
+  }
+
   ul {
     flex-wrap: wrap;
     display: flex;
   }
 
   .result {
+    background-position: center center;
+    background-size: cover;
+    background-repeat: no-repeat;
     display: flex;
     align-items: center;
     justify-content: center;
