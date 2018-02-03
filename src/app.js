@@ -1,11 +1,10 @@
-/* Code goes here */
-import "./styles/app.scss";
-import { urlEncodeData, getPromiseDataFromArray, flatten } from "./helpers";
+import './styles/app.scss';
+import { urlEncodeData, getPromiseDataFromArray, flatten } from './helpers';
 
 class Mashed {
   constructor(element) {
     this.root = element;
-    
+
     this.page = 0;
     this.pageSize = 10;
 
@@ -16,53 +15,52 @@ class Mashed {
   }
 
   initialize() {
-    this.sentinel = document.querySelector(".sentinel");
-    this.searchInput = document.querySelector(".search input");
-    this.searchBtn = document.querySelector(".search button");
-    this.sidebarWords = document.querySelectorAll("aside ul");
-    this.searchResultsContainer = document.querySelector(".results ul");
-    this.loadingIndicator = document.querySelector(".loader");
+    this.sentinel = document.querySelector('.sentinel');
+    this.searchInput = document.querySelector('.search input');
+    this.searchBtn = document.querySelector('.search button');
+    this.sidebarWords = document.querySelectorAll('aside ul');
+    this.searchResultsContainer = document.querySelector('.results ul');
+    this.loadingIndicator = document.querySelector('.loader');
 
-    this.sentinelObserver = new IntersectionObserver(entries => {
-      // If intersectionRatio is 0, the sentinel is out of view
-      // and we do not need to do anything.
+    this.sentinelObserver = new IntersectionObserver(
+      entries => {
+        // If intersectionRatio is 0, the sentinel is out of view
+        // and we do not need to do anything.
 
-      /**
-       * If isIntersecting is true, the target element has become
-       * at least as visible as the threshold that was passed. 
-       * If it's false, the target is no longer as visible 
-       * as the given threshold.
-       */
-      if (!entries[0].isIntersecting)
-        // DOM-recycle here
-        return;
-      
+        /**
+         * If isIntersecting is true, the target element has become
+         * at least as visible as the threshold that was passed.
+         * If it's false, the target is no longer as visible
+         * as the given threshold.
+         */
+        if (!entries[0].isIntersecting)
+          // DOM-recycle here
+          return;
+
         this.loadit();
-    }, {
-      threshold: 1
-    })
+      },
+      {
+        threshold: 1
+      }
+    );
 
     this.sentinelObserver.observe(this.sentinel);
   }
 
   addEventListeners() {
-    this.searchBtn.on("click", this.search);
-    this.sidebarWords.on("click", (event) => this.search(event.target.textContent));
+    this.searchBtn.on('click', this.search);
+    this.sidebarWords.on('click', event => this.search(event.target.textContent));
   }
 
   loadit() {
-    console.info('::: LOADING :::', this.page);
-
-    let apiCalls = [
-      this.fetchFlickrPhotos(this.searchInput.value, false), // only need new pics
-    ];
+    let apiCalls = [this.fetchFlickrPhotos(this.searchInput.value, false)];
 
     this.loadingIndicator.classList.add('spin');
 
     getPromiseDataFromArray(apiCalls)
       .then(result => {
-        this.renderFlickrResults(result[0])
-        this.loadingIndicator.classList.remove('spin')
+        this.renderFlickrResults(result[0]);
+        this.loadingIndicator.classList.remove('spin');
       })
       .catch(reason => {
         // TODO: Show error message to user
@@ -72,7 +70,7 @@ class Mashed {
 
   search(searchString = null) {
     let query = this.searchInput.value;
-    
+
     this.searchInput.value = searchString ? searchString : query;
     query = query.length ? query : searchString;
 
@@ -82,16 +80,16 @@ class Mashed {
 
     let apiCalls = [
       this.fetchFlickrPhotos(query), // this is a promise
-      this.fetchWordlabWords(query), // and this is a promise
+      this.fetchWordlabWords(query) // and this is a promise
     ];
 
     this.loadingIndicator.classList.add('spin');
 
     getPromiseDataFromArray(apiCalls)
       .then(result => {
-        this.renderFlickrResults(result[0])
-        this.renderWordlabResults(result[1])
-        this.loadingIndicator.classList.remove('spin')
+        this.renderFlickrResults(result[0]);
+        this.renderWordlabResults(result[1]);
+        this.loadingIndicator.classList.remove('spin');
       })
       .catch(reason => {
         return console.error(reason);
@@ -103,7 +101,7 @@ class Mashed {
 
     if (photos.length) {
       const frag = document.createDocumentFragment();
-      photos.map((photo) => {
+      photos.map(photo => {
         const liEl = document.createElement('li');
 
         liEl.style.backgroundImage = `url(${photo.url_m})`;
@@ -119,7 +117,6 @@ class Mashed {
 
       this.sentinelObserver.observe(this.sentinel);
     }
-
   }
 
   renderWordlabResults(data) {
@@ -133,11 +130,11 @@ class Mashed {
 
     const frag = document.createDocumentFragment();
 
-    words.map((word) => {
+    words.map(word => {
       let liEl = document.createElement('li');
-      let aEl =  document.createElement('a');
+      let aEl = document.createElement('a');
 
-      aEl.href = "#";
+      aEl.href = '#';
       aEl.textContent = word;
 
       liEl.appendChild(aEl);
@@ -145,7 +142,7 @@ class Mashed {
     });
 
     const sidebarWordHolder = document.querySelector('aside ul');
-    sidebarWordHolder.innerHTML = "";
+    sidebarWordHolder.innerHTML = '';
     sidebarWordHolder.appendChild(frag);
   }
 
@@ -153,19 +150,19 @@ class Mashed {
     let flickrAPIkey = process.env.FLICKR_API_KEY;
     let resourceUrl = `https://api.flickr.com/services/rest/?`;
 
-    fetchNew ? this.page = 0 : this.page++;
+    fetchNew ? (this.page = 0) : this.page++;
 
     let params = {
-      method: "flickr.photos.search",
+      method: 'flickr.photos.search',
       api_key: flickrAPIkey,
       text: query,
-      extras: "url_q, url_o, url_m",
-      format: "json",
+      extras: 'url_q, url_o, url_m',
+      format: 'json',
       tags: query,
       page: this.page,
       per_page: 10,
-      license: "2,3,4,5,6,9",
-      sort: "relevance",
+      license: '2,3,4,5,6,9',
+      sort: 'relevance',
       parse_tags: 1,
       nojsoncallback: 1
     };
@@ -185,5 +182,5 @@ class Mashed {
 }
 
 (function() {
-  new Mashed(document.querySelector("#mashed"));
+  new Mashed(document.querySelector('#mashed'));
 })();
